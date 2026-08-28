@@ -1,10 +1,10 @@
 #!/bin/bash
-# Omarchy Yazi - Uninstaller (v2.0.0)
+# Omarchy Yazi - Uninstaller (v2.1.0)
 # https://github.com/joaofelipegalvao/omarchy-yazi
 
 set -uo pipefail
 
-readonly VERSION="2.0.0"
+readonly VERSION="2.1.0"
 readonly INSTALL_DIR="$HOME/.local/share/omarchy-yazi"
 readonly YAZI_CONF="$HOME/.config/yazi/theme.toml"
 readonly PERSISTENT_THEMES_DIR="$HOME/.config/yazi/omarchy-themes"
@@ -74,7 +74,7 @@ remove_scripts() {
     rm -f "$GENERATOR_SCRIPT"
   fi
 
-  # Remove reload script
+  # Remove legacy reload script (v2.0 installs)
   if [[ -f "$RELOAD_SCRIPT" ]]; then
     log "Removing reload script..."
     rm -f "$RELOAD_SCRIPT"
@@ -83,9 +83,9 @@ remove_scripts() {
 
 remove_hook() {
   if [[ -f "$HOOK_FILE" ]]; then
-    if grep -q 'omarchy-yazi-reload' "$HOOK_FILE"; then
+    if grep -q 'omarchy-yazi-reload\|omarchy-yazi-generator' "$HOOK_FILE"; then
       log "Removing hook from Omarchy configuration..."
-      sed -i '/omarchy-yazi-reload/d' "$HOOK_FILE"
+      sed -i '/omarchy-yazi-reload/d;/omarchy-yazi-generator/d' "$HOOK_FILE"
 
       # If file only contains shebang, remove it
       if [[ $(wc -l <"$HOOK_FILE") -le 1 ]]; then
@@ -163,7 +163,7 @@ show_summary() {
   echo -e "\n${GREEN}Removed:${NC}"
   [[ ! -d "$INSTALL_DIR" ]] && echo "  ✓ Fallback theme repository"
   [[ ! -f "$GENERATOR_SCRIPT" ]] && echo "  ✓ Generator script"
-  [[ ! -f "$RELOAD_SCRIPT" ]] && echo "  ✓ Reload script"
+  [[ ! -f "$RELOAD_SCRIPT" ]] && echo "  ✓ Reload script (legacy)"
   [[ ! -L "$YAZI_CONF" ]] && echo "  ✓ Theme symlink"
   [[ ! -d "$YAZI_STATE" ]] && echo "  ✓ Yazi cache"
 

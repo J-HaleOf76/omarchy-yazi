@@ -1,13 +1,12 @@
 #!/bin/bash
-# Omarchy Yazi - Theme Configurator (v2.0.0 - Persistent Profiles)
+# Omarchy Yazi - Theme Configurator (v2.1.0 - Single Script)
 # Architecture: Persistent Theme Profiles in ~/.config/yazi/omarchy-themes/
 # https://github.com/joaofelipegalvao/omarchy-yazi
 
 set -euo pipefail
 
-readonly VERSION="2.0.0"
+readonly VERSION="2.1.0"
 readonly YAZI_CONF="$HOME/.config/yazi/theme.toml"
-readonly RELOAD_SCRIPT="$HOME/.local/bin/omarchy-yazi-reload"
 readonly GENERATOR_SCRIPT="$HOME/.local/bin/omarchy-yazi-generator"
 readonly HOOK_FILE="$HOME/.config/omarchy/hooks/theme-set"
 readonly OMARCHY_DIR="$HOME/.config/omarchy"
@@ -44,7 +43,7 @@ usage() {
   cat <<EOF
 Omarchy Yazi Installer v$VERSION
 
-Configures Yazi to work with Omarchy 3.3+.
+Configures Yazi to work with Omarchy 4.
 
 Usage: $(basename "$0") [OPTIONS]
 
@@ -54,7 +53,7 @@ Options:
   -f, --force    Force reinstall (regenerate all files)
   -v, --version  Show version
 
-Architecture (v2.0):
+Architecture (v2.1):
   ~/.config/yazi/theme.toml (symlink)
     ↓ points to
   ~/.config/yazi/omarchy-themes/THEME_NAME.toml (persistent profiles)
@@ -75,10 +74,10 @@ This installer is for Omarchy Linux users.
 Visit: https://omarchy.org"
   fi
 
-  # Check for theme.name file (3.3+ indicator)
-  if [[ ! -f "$OMARCHY_DIR/current/theme.name" ]]; then
+  # Check for theme.name file (Omarchy 4: ~/.local/state, 3.3: ~/.config)
+  if [[ ! -f "$HOME/.local/state/omarchy/current/theme.name" ]] && [[ ! -f "$OMARCHY_DIR/current/theme.name" ]]; then
     warn "Theme name file not found - this may be an older Omarchy version"
-    warn "Expected: $OMARCHY_DIR/current/theme.name"
+    warn "Expected: $HOME/.local/state/omarchy/current/theme.name"
   fi
 
   # Check dependencies
@@ -102,7 +101,7 @@ create_generator_script() {
 
   # Check if script exists and is current version
   if [[ -f "$GENERATOR_SCRIPT" && $FORCE -eq 0 ]]; then
-    if grep -q "v2.0.0" "$GENERATOR_SCRIPT" 2>/dev/null; then
+    if grep -q "v2.1.0" "$GENERATOR_SCRIPT" 2>/dev/null; then
       info "Generator script already up to date"
       return 0
     fi
@@ -110,24 +109,29 @@ create_generator_script() {
 
   cat >"$GENERATOR_SCRIPT" <<'GENERATOR'
 #!/bin/bash
-# Omarchy Yazi Theme Generator (v2.0.0)
+# Omarchy Yazi Theme Generator (v2.1.0)
 # Generates and maintains persistent theme profiles
 set -euo pipefail
 
 readonly OMARCHY_DIR="$HOME/.config/omarchy"
-readonly THEME_NAME_FILE="$OMARCHY_DIR/current/theme.name"
+readonly THEME_NAME_FILE="$HOME/.local/state/omarchy/current/theme.name"
+readonly LEGACY_THEME_NAME_FILE="$OMARCHY_DIR/current/theme.name"
 readonly PERSISTENT_THEMES_DIR="$HOME/.config/yazi/omarchy-themes"
 readonly CURRENT_THEME_LINK="$HOME/.config/yazi/theme.toml"
 readonly FALLBACK_THEMES_DIR="$HOME/.local/share/omarchy-yazi/themes"
 
 detect_theme() {
   local theme_name=""
-  
-  # Try reading from theme.name file
+
+  # Try reading from theme.name file (Omarchy 4: ~/.local/state, 3.3: ~/.config)
   if [[ -f "$THEME_NAME_FILE" ]]; then
     theme_name=$(cat "$THEME_NAME_FILE" | tr -d '[:space:]' 2>/dev/null || echo "")
   fi
-  
+
+  if [[ -z "$theme_name" && -f "$LEGACY_THEME_NAME_FILE" ]]; then
+    theme_name=$(cat "$LEGACY_THEME_NAME_FILE" | tr -d '[:space:]' 2>/dev/null || echo "")
+  fi
+
   # Fallback to default
   echo "${theme_name:-tokyo-night}"
 }
@@ -195,8 +199,18 @@ EOF
   fi
 fi
 
+# Back up an existing real theme.toml the first time it becomes a symlink
+if [[ -f "$CURRENT_THEME_LINK" ]] && [[ ! -L "$CURRENT_THEME_LINK" ]]; then
+  cp "$CURRENT_THEME_LINK" "$CURRENT_THEME_LINK.backup.$(date +%Y%m%d-%H%M%S)"
+fi
+
 # Update symlink to point to current theme's persistent profile
 ln -sf "$theme_file" "$CURRENT_THEME_LINK"
+
+# Clear Yazi state cache so the new theme is picked up
+if [[ -d "$HOME/.local/state/yazi" ]]; then
+  rm -rf "$HOME/.local/state/yazi" 2>/dev/null || true
+fi
 
 exit 0
 GENERATOR
@@ -245,37 +259,6 @@ install_fallback_themes() {
   fi
 }
 
-create_reload_script() {
-  log "Creating reload script..."
-  local script_dir="$(dirname "$RELOAD_SCRIPT")"
-  mkdir -p "$script_dir" || error "Failed to create $script_dir"
-
-  cat >"$RELOAD_SCRIPT" <<'SCRIPT'
-#!/bin/bash
-# Omarchy Yazi Reload Script (v2.0.0)
-# Called by Omarchy when theme changes
-set -euo pipefail
-
-readonly GENERATOR="$HOME/.local/bin/omarchy-yazi-generator"
-readonly YAZI_STATE="$HOME/.local/state/yazi"
-
-# Regenerate current theme config
-if [[ -x "$GENERATOR" ]]; then
-  "$GENERATOR" &>/dev/null || true
-fi
-
-# Clear Yazi state cache
-if [[ -d "$YAZI_STATE" ]]; then
-  rm -rf "$YAZI_STATE" &>/dev/null || true
-fi
-
-exit 0
-SCRIPT
-
-  chmod +x "$RELOAD_SCRIPT" || error "Failed to make reload script executable"
-  log "Created reload script"
-}
-
 install_hook() {
   log "Installing Omarchy hook..."
 
@@ -300,9 +283,9 @@ HOOK
   # Ensure hook is executable
   [[ ! -x "$HOOK_FILE" ]] && chmod +x "$HOOK_FILE"
 
-  # Add reload script to hook if not present
-  if ! grep -q 'omarchy-yazi-reload' "$HOOK_FILE" 2>/dev/null; then
-    echo "$RELOAD_SCRIPT" >>"$HOOK_FILE"
+  # Add generator script to hook if not present
+  if ! grep -q 'omarchy-yazi-generator' "$HOOK_FILE" 2>/dev/null; then
+    echo "$GENERATOR_SCRIPT" >>"$HOOK_FILE"
     log "Hook installed"
   else
     log "Hook already installed"
@@ -327,11 +310,14 @@ validate_setup() {
   fi
 
   # Try to detect current theme
-  local theme_name_file="$OMARCHY_DIR/current/theme.name"
+  local theme_name_file="$HOME/.local/state/omarchy/current/theme.name"
   if [[ ! -f "$theme_name_file" ]]; then
-    warn "Current theme name file not found at $theme_name_file"
-    warn "This is expected on older Omarchy versions"
-    ((issues++))
+    theme_name_file="$OMARCHY_DIR/current/theme.name"
+    if [[ ! -f "$theme_name_file" ]]; then
+      warn "Current theme name file not found."
+      warn "This is expected on older Omarchy versions"
+      ((issues++))
+    fi
   fi
 
   if [[ $issues -eq 0 ]]; then
@@ -370,10 +356,10 @@ Use --help for usage" ;;
     echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
     echo -e "${BLUE}║${NC}         ${BLUE}Omarchy Yazi Installer${NC}         ${BLUE}║${NC}"
     echo -e "${BLUE}╚════════════════════════════════════════╝${NC}\n"
-    echo -e "${CYAN}New Architecture (v2.0):${NC}"
-    echo "  ✓ Works with Omarchy 3.3+"
+    echo -e "${CYAN}New Architecture (v2.1):${NC}"
+    echo "  ✓ Works with Omarchy 4"
     echo "  ✓ Persistent theme profiles"
-    echo "  ✓ No manual theme directory needed"
+    echo "  ✓ Single generator script (no reload helper)"
     echo ""
   fi
 
@@ -388,7 +374,6 @@ Use --help for usage" ;;
     "$GENERATOR_SCRIPT" || warn "Initial theme generation failed (will retry on theme change)"
   fi
 
-  create_reload_script
   install_hook
 
   # Validation
