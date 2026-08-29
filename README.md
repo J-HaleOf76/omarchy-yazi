@@ -63,9 +63,14 @@
 curl -fsSL https://raw.githubusercontent.com/joaofelipegalvao/omarchy-yazi/main/scripts/omarchy-yazi-install.sh | bash
 ```
 
-Then restart Yazi to see your current Omarchy theme applied:
+Then your current Omarchy theme is applied — live, if your Yazi is recent enough:
+
+> **Hot reload**: with Yazi >= 26.2, Yazi watches the terminal's light/dark scheme and
+> **re-applies the theme live in running instances** on every switch — no restart needed.
+> Older Yazi only reads the theme on launch:
 
 ```bash
+# Only needed for Yazi older than 26.2:
 killall yazi && yazi
 ```
 
@@ -92,10 +97,10 @@ On every Omarchy theme change:
 2. The `theme-set` hook triggers `omarchy-yazi-generator`
 3. The generator creates/reuses the profile `~/.config/yazi/omarchy-themes/THEME.toml`
 4. It updates the symlink `~/.config/yazi/theme.toml` → active profile
-5. It clears Yazi's cache — the new theme applies on next launch
+5. It clears Yazi's cache — with Yazi >= 26.2 the terminal reports the scheme change and the running instance re-applies the theme **live**
 
 ```
-Super+Ctrl+Shift+Space → theme-set hook → generator → symlink update → cache clear → ✨
+Super+Ctrl+Shift+Space → theme-set hook → generator → symlink update → cache clear → live re-theme → ✨
 ```
 
 Missing a theme template? The generator picks the closest variant automatically (e.g. `catppuccin-*`).

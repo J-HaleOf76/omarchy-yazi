@@ -1,10 +1,10 @@
 #!/bin/bash
-# Omarchy Yazi - Uninstaller (v2.1.0)
+# Omarchy Yazi - Uninstaller (v2.2.0)
 # https://github.com/joaofelipegalvao/omarchy-yazi
 
 set -uo pipefail
 
-readonly VERSION="2.1.0"
+readonly VERSION="2.2.0"
 readonly INSTALL_DIR="$HOME/.local/share/omarchy-yazi"
 readonly YAZI_CONF="$HOME/.config/yazi/theme.toml"
 readonly PERSISTENT_THEMES_DIR="$HOME/.config/yazi/omarchy-themes"

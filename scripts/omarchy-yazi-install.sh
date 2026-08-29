@@ -1,11 +1,11 @@
 #!/bin/bash
-# Omarchy Yazi - Theme Configurator (v2.1.0 - Single Script)
+# Omarchy Yazi - Theme Configurator (v2.2.0 - Single Script)
 # Architecture: Persistent Theme Profiles in ~/.config/yazi/omarchy-themes/
 # https://github.com/joaofelipegalvao/omarchy-yazi
 
 set -euo pipefail
 
-readonly VERSION="2.1.0"
+readonly VERSION="2.2.0"
 readonly YAZI_CONF="$HOME/.config/yazi/theme.toml"
 readonly GENERATOR_SCRIPT="$HOME/.local/bin/omarchy-yazi-generator"
 readonly HOOK_FILE="$HOME/.config/omarchy/hooks/theme-set"
@@ -53,7 +53,7 @@ Options:
   -f, --force    Force reinstall (regenerate all files)
   -v, --version  Show version
 
-Architecture (v2.1):
+Architecture (v2.2):
   ~/.config/yazi/theme.toml (symlink)
     ↓ points to
   ~/.config/yazi/omarchy-themes/THEME_NAME.toml (persistent profiles)
@@ -101,7 +101,7 @@ create_generator_script() {
 
   # Check if script exists and is current version
   if [[ -f "$GENERATOR_SCRIPT" && $FORCE -eq 0 ]]; then
-    if grep -q "v2.1.0" "$GENERATOR_SCRIPT" 2>/dev/null; then
+    if grep -q "v2.2.0" "$GENERATOR_SCRIPT" 2>/dev/null; then
       info "Generator script already up to date"
       return 0
     fi
@@ -109,7 +109,7 @@ create_generator_script() {
 
   cat >"$GENERATOR_SCRIPT" <<'GENERATOR'
 #!/bin/bash
-# Omarchy Yazi Theme Generator (v2.1.0)
+# Omarchy Yazi Theme Generator (v2.2.0)
 # Generates and maintains persistent theme profiles
 set -euo pipefail
 
@@ -158,6 +158,9 @@ find_source_theme() {
 # Main execution
 theme_name=$(detect_theme)
 theme_file="$PERSISTENT_THEMES_DIR/$theme_name.toml"
+
+# Ensure the persistent themes directory exists
+mkdir -p "$PERSISTENT_THEMES_DIR"
 
 # Create persistent theme file ONLY if it doesn't exist
 if [[ ! -f "$theme_file" ]]; then
@@ -356,7 +359,7 @@ Use --help for usage" ;;
     echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
     echo -e "${BLUE}║${NC}         ${BLUE}Omarchy Yazi Installer${NC}         ${BLUE}║${NC}"
     echo -e "${BLUE}╚════════════════════════════════════════╝${NC}\n"
-    echo -e "${CYAN}New Architecture (v2.1):${NC}"
+    echo -e "${CYAN}New Architecture (v2.2):${NC}"
     echo "  ✓ Works with Omarchy 4"
     echo "  ✓ Persistent theme profiles"
     echo "  ✓ Single generator script (no reload helper)"
@@ -393,8 +396,8 @@ Use --help for usage" ;;
     echo -e "     ${YELLOW}Super + Ctrl + Shift + Space${NC}"
     echo "     → Yazi updates automatically!"
     echo ""
-    echo "  2. Restart Yazi to see changes:"
-    echo -e "     ${YELLOW}killall yazi && yazi${NC}"
+    echo "  2. The running Yazi hot-reloads the theme (Yazi >= 26.2):"
+    echo -e "     ${YELLOW}no restart needed — automatic light/dark detection${NC}"
     echo ""
     echo -e "${CYAN}How it works:${NC}"
     echo -e "  • Your theme.toml is now a symlink to:"
